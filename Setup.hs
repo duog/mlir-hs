@@ -83,9 +83,10 @@ buildTblgen confFlags = do
   ldFlags    <- words <$> llvmConfig ["--ldflags"]
   cppFlags   <- words <$> llvmConfig ["--cppflags"]
   includeDir <- trim  <$> llvmConfig ["--includedir"]
+  libDir     <- trim  <$> llvmConfig ["--libdir"]
   cc <- getCC confFlags
   ensureDirectory $ cwd </> ".bin"
-  cc $ sources ++ cxxFlags ++ ldFlags ++
+  cc $ sources ++ cxxFlags ++ ldFlags ++ ["-Wl,-rpath=" ++ libDir] ++
         [ "-lMLIR", "-lLLVM", "-lMLIRTableGen", "-lLLVMTableGen"
         , "-o", cwd </> ".bin/mlir-hs-tblgen"]
   let tblgenProgram = ConfiguredProgram
@@ -145,19 +146,27 @@ main = defaultMainWithHooks simpleUserHooks
 
       -- TODO: Do I need to do anything about the rpath?
       llvmConfig  <- getLLVMConfig confFlags
-      (llvmLibDirFlags , llvmLdFlags) <- partition isLibDir     . words <$> llvmConfig ["--ldflags"]
+      (llvmLibDirFlags , llvmLdFlags0) <- partition isLibDir     . words <$> llvmConfig ["--ldflags"]
+
+
       (llvmIncludeFlags, llvmCcFlags) <- partition isIncludeDir . words <$> llvmConfig ["--cflags"]
       let llvmIncludeDirs = (fromJust . (stripPrefix "-I")) <$> llvmIncludeFlags
       let llvmLibDirs     = (fromJust . (stripPrefix "-L")) <$> llvmLibDirFlags
+      let ghcopts = ["-optl-Wl,-rpath=" <> x | x <- llvmLibDirs]
       let Just condLib = condLibrary genericPackageDesc
       let newLibrary = condTreeData condLib
             & over (libBuildInfo . buildInfo . ccOptions     ) (<> llvmCcFlags     )
             & over (libBuildInfo . buildInfo . includeDirs   ) (<> llvmIncludeDirs )
-            & over (libBuildInfo . buildInfo . ldOptions     ) (<> llvmLdFlags     )
+            & over (libBuildInfo . buildInfo . ldOptions     ) (<> llvmLdFlags0     )
             & over (libBuildInfo . buildInfo . extraLibDirs  ) (<> llvmLibDirs     )
             & over (libBuildInfo . buildInfo . otherModules  ) (<> generatedModules)
             & over (libBuildInfo . buildInfo . autogenModules) (<> generatedModules)
+            & over (libBuildInfo . buildInfo . options ) (<> PerCompilerFlavor ghcopts ghcopts)
+
+
       let newCondLibrary = condLib { condTreeData = newLibrary }
+
+      print newCondLibrary
 
       ensureDirectory "test/MLIR/AST/Dialect/Generated"
       generatedSpecModules <- liftM catMaybes $ forM dialects $ \(dialect, tdPath, opts) -> do
