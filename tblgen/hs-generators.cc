@@ -216,16 +216,16 @@ const attr_pattern_map& getAttrPatternTemplates() {
       {"AffineMapAttr", {"AffineMapAttr {0}", "Affine.Map", {}, {}}},
       {"ArrayAttr", {"ArrayAttr {0}", "[Attribute]", {}, {}}},
       {"BoolAttr", {"BoolAttr {0}", "Bool", {}, {}}},
-      {"DenseI32ArrayAttr", {"PatternUtil.I32ArrayAttr {0}", "[Int]", {}, {}}},
+      {"DenseI32ArrayAttr", {"PatternUtil.I32ArrayAttr {0}", "[Integer]", {}, {}}},
       {"DictionaryAttr", {"DictionaryAttr {0}", "(M.Map Name Attribute)", {}, {}}},
       {"F32Attr", {"FloatAttr Float32Type {0}", "Double", {}, {}}},
       {"F64Attr", {"FloatAttr Float64Type {0}", "Double", {}, {}}},
-      {"I32Attr", {"IntegerAttr (IntegerType Signless 32) {0}", "Int", {}, {}}},
-      {"I64Attr", {"IntegerAttr (IntegerType Signless 64) {0}", "Int", {}, {}}},
-      {"I64ArrayAttr", {"PatternUtil.I64ArrayAttr {0}", "[Int]", {}, {}}},
+      {"I32Attr", {"IntegerAttr (IntegerType Signless 32) {0}", "Integer", {}, {}}},
+      {"I64Attr", {"IntegerAttr (IntegerType Signless 64) {0}", "Integer", {}, {}}},
+      {"I64ArrayAttr", {"PatternUtil.I64ArrayAttr {0}", "[Integer]", {}, {}}},
       {"I64ElementsAttr", {"DenseElementsAttr (IntegerType Signless 64) (DenseInt64 {0})",
                            "(AST.IStorableArray {0} Int64)", {"Ix {0}", "Show {0}"}, {"PatternUtil.DummyIx"}}},
-      {"IndexAttr", {"IntegerAttr IndexType {0}", "Int", {}, {}}},
+      {"IndexAttr", {"IntegerAttr IndexType {0}", "Integer", {}, {}}},
       {"StrAttr", {"StringAttr {0}", "BS.ByteString", {}, {}}},
       // TODO(jpienaar): We could specialize this one more to query Type.
       {"TypedAttrInterface", {"{0}", "Attribute", {}, {}}},
@@ -775,7 +775,7 @@ bool emitOpTableDefs(const llvm::RecordKeeper& recordKeeper,
   os << "{-# OPTIONS_HADDOCK hide, prune, not-home #-}\n\n";
   os << "module MLIR.AST.Dialect.Generated." << dialect_name << " where\n";
   os << R"(
-import Prelude (Int, Double, Maybe(..), Bool(..), (++), (<$>), ($), (<>), Show)
+import Prelude (Integer, Int, Double, Maybe(..), Bool(..), (++), (<$>), ($), (<>), Show)
 import qualified Prelude
 import Data.Int (Int64)
 import qualified Data.Maybe

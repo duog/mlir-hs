@@ -38,6 +38,8 @@ import qualified MLIR.Native.FFI as Native
 import qualified MLIR.AST.Dialect.Affine as Affine
 import MLIR.AST.Serialize
 import MLIR.AST.IStorableArray
+import Control.Exception(throwIO)
+import System.IO.Error(userError)
 
 type Name = BS.ByteString
 type UInt = Word
@@ -130,7 +132,7 @@ data Attribute =
     ArrayAttr      [Attribute]
   | DictionaryAttr (M.Map Name Attribute)
   | FloatAttr      Type Double
-  | IntegerAttr    Type Int
+  | IntegerAttr    Type Integer
   | BoolAttr       Bool
   | StringAttr     BS.ByteString
   | TypeAttr       Type
@@ -169,7 +171,6 @@ data DenseElements
   | forall i. (Show i, Ix i) => DenseFloat  (IStorableArray i Float )
   | forall i. (Show i, Ix i) => DenseDouble (IStorableArray i Double)
 
-
 -- Note that we use a relaxed notion of equality, where the indices don't matter!
 -- TODO: Use a faster comparison? We could really just use memcmp here.
 instance Eq DenseElements where
@@ -184,17 +185,7 @@ instance Eq DenseElements where
     (DenseDouble da, DenseDouble db) -> elems da == elems db
     _ -> False
 
-instance Show DenseElements where
-  showsPrec d = \case
-    DenseUInt8 x -> showParen (d >= 10) (showString "DenseUInt8") . shows x
-    DenseInt8 x -> showParen (d >= 10) (showString "DenseUInt8" ). shows x
-    DenseUInt32 x -> showParen (d >= 10) (showString "DenseUInt8" ). shows x
-    DenseInt32  x -> showParen (d >= 10) (showString "DenseUInt8" ). shows x
-    DenseUInt64  x -> showParen (d >= 10) (showString "DenseUInt8" ). shows x
-    DenseInt64 x -> showParen (d >= 10) (showString "DenseUInt8" ). shows x
-    DenseFloat x -> showParen (d >= 10) (showString "DenseUInt8" ). shows x
-    DenseDouble x -> showParen (d >= 10) (showString "DenseUInt8" ). shows x
-
+deriving stock instance Show DenseElements
 
 data ResultTypes = Explicit [Type] | Inferred
   deriving stock Show
@@ -467,6 +458,7 @@ instance FromAST Attribute Native.Attribute where
       } |]
     IntegerAttr ty value -> do
       nativeType <- fromAST ctx env ty
+      when (value < fromIntegral (minBound :: Int64) || (value > fromIntegral (maxBound :: Int64))) $ throwIO . userError $ "FromAST:IntegerAttr:outofbounds:" <> show value
       let nativeValue = fromIntegral value
       [C.exp| MlirAttribute {
         mlirIntegerAttrGet($(MlirType nativeType), $(int64_t nativeValue))

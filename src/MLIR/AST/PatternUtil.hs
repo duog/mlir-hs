@@ -25,23 +25,23 @@ import Data.Array
 import MLIR.AST
 import qualified MLIR.AST.Dialect.Affine as Affine
 
-unwrapI32ArrayAttr :: Attribute -> Maybe [Int]
+unwrapI32ArrayAttr :: Attribute -> Maybe [Integer]
 unwrapI32ArrayAttr (ArrayAttr vals) = for vals \case
   IntegerAttr (IntegerType Signed 32) v -> Just v
   _                                     -> Nothing
 unwrapI32ArrayAttr _ = Nothing
 
-pattern I32ArrayAttr :: [Int] -> Attribute
+pattern I32ArrayAttr :: [Integer] -> Attribute
 pattern I32ArrayAttr vals <- (unwrapI32ArrayAttr -> Just vals)
   where I32ArrayAttr vals = ArrayAttr $ fmap (IntegerAttr (IntegerType Signed 32)) vals
 
-unwrapI64ArrayAttr :: Attribute -> Maybe [Int]
+unwrapI64ArrayAttr :: Attribute -> Maybe [Integer]
 unwrapI64ArrayAttr (ArrayAttr vals) = for vals \case
   IntegerAttr (IntegerType Signed 64) v -> Just v
   _                                     -> Nothing
 unwrapI64ArrayAttr _ = Nothing
 
-pattern I64ArrayAttr :: [Int] -> Attribute
+pattern I64ArrayAttr :: [Integer] -> Attribute
 pattern I64ArrayAttr vals <- (unwrapI64ArrayAttr -> Just vals)
   where I64ArrayAttr vals = ArrayAttr $ fmap (IntegerAttr (IntegerType Signed 64)) vals
 
