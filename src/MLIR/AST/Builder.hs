@@ -27,6 +27,7 @@ import Control.Monad.Reader
 -- Value
 
 data Value = Name :> Type
+  deriving stock (Eq, Show)
 
 typeOf :: Value -> Type
 typeOf (_ :> ty) = ty
@@ -123,7 +124,7 @@ instance Monad m => MonadBlockDecl (BlockBuilderT m) where
     case opResultTypes op of
       Inferred    -> error "Builder doesn't support inferred result types!"
       Explicit [] -> modify \s -> s { blockBindings = blockBindings s .:. (Do op) }
-      Explicit _  -> error "emitOp_ can only be used on ops that have no results"
+      Explicit _  -> error $ "emitOp_ can only be used on ops that have no results: " <> show op
 
 instance MonadNameSupply m => MonadBlockBuilder (BlockBuilderT m) where
   emitOp opNoLoc = BlockBuilderT $ do
@@ -163,6 +164,14 @@ type BlockName = Name
 
 class Monad m => MonadRegionBuilder m where
   appendBlock :: BlockBuilderT m EndOfBlock -> m BlockName
+
+-- instance Monad m => MonadRegionBuilder (RegionBuilderT m) where
+--   appendBlock bb = do
+--     s0 <- RegionBuilderT get
+--     let RegionBuilderT st_m = buildBlock bb
+--     (a, s1) <- runStateT st_m s0
+--     RegionBuilderT $ put s1
+--     pure a
 
 endOfRegion :: Monad m => m ()
 endOfRegion = return ()

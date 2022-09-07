@@ -43,7 +43,7 @@ data Type = PointerType AST.Type
           | VoidType
           | LiteralStructType [AST.Type]
           -- TODO(apaszke): Structures, functions, vectors, etc.
-          deriving Eq
+          deriving stock (Eq, Show)
 
 instance AST.FromAST Type Native.Type where
   fromAST ctx env ty = case ty of
@@ -65,8 +65,8 @@ instance AST.FromAST Type Native.Type where
 
 castLLVMType :: AST.Type -> Maybe Type
 castLLVMType ty = case ty of
-  AST.DialectType dty -> cast dty
-  _                   -> Nothing
+  AST.DialectType t -> Just t
+  _                 -> Nothing
 
 pattern Ptr :: AST.Type -> AST.Type
 pattern Ptr t <- (castLLVMType -> Just (PointerType t))

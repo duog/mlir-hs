@@ -22,6 +22,8 @@ module MLIR.AST.Rewrite
   , applyClosedOpRewriteT
   ) where
 
+import GHC.Stack(HasCallStack)
+
 import qualified Data.Map.Strict as M
 import Control.Monad.Reader
 import Control.Monad.Identity
@@ -109,7 +111,7 @@ applyOpRewriteBlock rule Block{..} = do
       newRegions <- lift $ mapM (applyOpRewriteRegion (const $ return Skip)) $ opRegions op
       emitOp $ op { opRegions = newRegions, opOperands = operands (opOperands op) }
 
-substOp :: MonadReader BlockAndValueMapping m => AST.Operation -> m Operation
+substOp :: (HasCallStack, MonadReader BlockAndValueMapping m) => AST.Operation -> m Operation
 substOp op = do
   (valueMap, blockMap) <- ask
   let newOperands = fmap (valueMap M.!) $ opOperands op

@@ -20,9 +20,9 @@ import Data.Typeable
 import Data.Int
 import Data.Word
 import Data.Coerce
+import Data.Maybe
 import Data.Ix
 import Data.Array.IArray
-import Data.Maybe
 import Foreign.Ptr
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
@@ -43,7 +43,7 @@ type Name = BS.ByteString
 type UInt = Word
 
 data Signedness = Signed | Unsigned | Signless
-                  deriving Eq
+                  deriving stock (Eq, Show)
 data Type =
   -- Builtin types
   -- See <https://mlir.llvm.org/docs/Dialects/Builtin/#types>
@@ -74,20 +74,26 @@ data Type =
   | OpaqueType { opaqueTypeNamespace :: Name
                , opaqueTypeData :: BS.ByteString }
   | MkDialectType DialectType
-  deriving stock (Eq)
-
-data DialectType where
-  WrappedDialectType :: forall t. (Typeable t, Eq t, FromAST t Native.Type) => t -> DialectType
+  deriving stock (Eq,Show)
+  -- GHC cannot derive Eq due to the existential case, so we implement Eq below
+  -- deriving Eq
 
 pattern DialectType ::
-  (Typeable t, Eq t, FromAST t Native.Type)
-  => (Typeable t, Eq t, FromAST t Native.Type)
+  (Show t, Typeable t, Eq t, FromAST t Native.Type)
+  => (Show t, Typeable t, Eq t, FromAST t Native.Type)
   => t -> Type
+
 pattern DialectType t <- MkDialectType (WrappedDialectType (cast -> Just t))
   where DialectType t = MkDialectType (WrappedDialectType t)
 
+data DialectType where
+  WrappedDialectType :: forall t. (Show t, Typeable t, Eq t, FromAST t Native.Type) => t -> DialectType
+
 instance Eq DialectType where
-  WrappedDialectType t == WrappedDialectType s = fromMaybe False $ (== t) <$> cast s
+  WrappedDialectType  t == WrappedDialectType  s = fromMaybe False $ (== t) <$> cast s
+
+instance Show DialectType where
+  show (WrappedDialectType  t) = show t
 
 data Location =
     UnknownLocation
@@ -97,8 +103,10 @@ data Location =
   -- TODO(jpienaar): Add support C API side and implement these
   | CallSiteLocation
   | OpaqueLocation
+  deriving stock Show
 
 data Binding = Bind [Name] Operation
+  deriving stock (Show)
 
 pattern Do :: Operation -> Binding
 pattern Do op = Bind [] op
@@ -113,9 +121,10 @@ data Block = Block {
     blockName :: Name
   , blockArgs :: [(Name, Type)]
   , blockBody :: [Binding]
-  }
+  } deriving stock Show
 
 data Region = Region [Block]
+  deriving stock Show
 
 data Attribute =
     ArrayAttr      [Attribute]
@@ -129,8 +138,26 @@ data Attribute =
   | UnitAttr
   | DenseArrayAttr DenseElements
   | DenseElementsAttr Type DenseElements
-  deriving Eq
-  -- TODO(apaszke): (Flat) SymbolRef, IntegerSet, Opaque
+  | DialectAttr_ DialectAttr
+  deriving stock (Eq, Show)
+
+pattern DialectAttr ::
+  (Show t, Typeable t, Eq t, FromAST t Native.Attribute)
+  => (Show t, Typeable t, Eq t, FromAST t Native.Attribute)
+  => t -> Attribute
+pattern DialectAttr t <- DialectAttr_ (MkDialectAttr (cast -> Just t))
+  where DialectAttr t = DialectAttr_ (MkDialectAttr t)
+
+data DialectAttr where
+  MkDialectAttr :: forall t. (Show t, Typeable t, Eq t, FromAST t Native.Attribute) => t -> DialectAttr
+
+instance Eq DialectAttr where
+  MkDialectAttr x == MkDialectAttr y = case cast x of
+    Just x' -> x' == y
+    Nothing -> False
+
+instance Show DialectAttr where
+  show (MkDialectAttr x) = show x
 
 data DenseElements
   = forall i. (Show i, Ix i) => DenseUInt8  (IStorableArray i Word8 )
@@ -141,6 +168,7 @@ data DenseElements
   | forall i. (Show i, Ix i) => DenseInt64  (IStorableArray i Int64 )
   | forall i. (Show i, Ix i) => DenseFloat  (IStorableArray i Float )
   | forall i. (Show i, Ix i) => DenseDouble (IStorableArray i Double)
+
 
 -- Note that we use a relaxed notion of equality, where the indices don't matter!
 -- TODO: Use a faster comparison? We could really just use memcmp here.
@@ -156,7 +184,20 @@ instance Eq DenseElements where
     (DenseDouble da, DenseDouble db) -> elems da == elems db
     _ -> False
 
+instance Show DenseElements where
+  showsPrec d = \case
+    DenseUInt8 x -> showParen (d >= 10) (showString "DenseUInt8") . shows x
+    DenseInt8 x -> showParen (d >= 10) (showString "DenseUInt8" ). shows x
+    DenseUInt32 x -> showParen (d >= 10) (showString "DenseUInt8" ). shows x
+    DenseInt32  x -> showParen (d >= 10) (showString "DenseUInt8" ). shows x
+    DenseUInt64  x -> showParen (d >= 10) (showString "DenseUInt8" ). shows x
+    DenseInt64 x -> showParen (d >= 10) (showString "DenseUInt8" ). shows x
+    DenseFloat x -> showParen (d >= 10) (showString "DenseUInt8" ). shows x
+    DenseDouble x -> showParen (d >= 10) (showString "DenseUInt8" ). shows x
+
+
 data ResultTypes = Explicit [Type] | Inferred
+  deriving stock Show
 
 type NamedAttributes = M.Map Name Attribute
 
@@ -168,7 +209,7 @@ data AbstractOperation operand = Operation {
     opRegions :: [Region],
     opSuccessors :: [Name],
     opAttributes :: M.Map Name Attribute
-  }
+  } deriving stock Show
 type Operation = AbstractOperation Name
 
 --------------------------------------------------------------------------------
@@ -365,7 +406,7 @@ instance FromAST Region Native.Region where
 
 instance FromAST Block Native.Block where
   fromAST ctx (outerValueEnv, blockEnv) Block{..} = do
-    let block = blockEnv M.! blockName
+    let block = fromMaybe (error "dougrulz1") $ M.lookup blockName blockEnv
     nativeBlockArgs <- getBlockArgs block
     let blockArgNames = fst <$> blockArgs
     let argValueEnv = M.fromList $ zip blockArgNames nativeBlockArgs
@@ -407,6 +448,7 @@ instance FromAST Block Native.Block where
 
 instance FromAST Attribute Native.Attribute where
   fromAST ctx env attr = case attr of
+    DialectAttr_ (MkDialectAttr a) -> fromAST ctx env a
     ArrayAttr attrs -> evalContT $ do
       (numAttrs, nativeAttrs) <- packFromAST ctx env attrs
       liftIO $ [C.exp| MlirAttribute {
@@ -573,16 +615,25 @@ instance FromAST Attribute Native.Attribute where
 
 
 instance FromAST Operation Native.Operation where
-  fromAST ctx env@(valueEnv, blockEnv) Operation{..} = evalContT $ do
+  fromAST ctx env@(valueEnv, blockEnv) o@Operation{..} = evalContT $ do
     (namePtr, nameLen) <- ContT $ BS.unsafeUseAsCStringLen opName
     let nameLenSizeT = fromIntegral nameLen
     (infersResults, (numResultTypes, nativeResultTypes)) <- case opResultTypes of
       Inferred -> return (CTrue, (0, nullPtr))
       Explicit types -> (CFalse,) <$> packFromAST ctx env types
     nativeLocation <- liftIO $ fromAST ctx env opLocation
-    (numOperands, nativeOperands) <- packArray $ fmap (valueEnv M.!) opOperands
+    let
+      do_dump :: forall a. String -> Name -> IO a
+      do_dump s n = do
+        putStrLn $ "dump " <> s <> show n
+        print o
+        pure $ error $ "do_dump:" <> s <> show n
+
+      val_lookup (n :: Name) = maybe (do_dump "val_lookup" n) pure $ M.lookup n valueEnv
+      block_lookup (n :: Name) = maybe (do_dump "dougrulz3" n) pure $ M.lookup n blockEnv
+    (numOperands, nativeOperands) <- packArray =<<  liftIO (traverse val_lookup opOperands)
     (numRegions, nativeRegions) <- packFromAST ctx env opRegions
-    (numSuccessors, nativeSuccessors) <- packArray $ fmap (blockEnv M.!) opSuccessors
+    (numSuccessors, nativeSuccessors) <- packArray =<< (liftIO $ traverse block_lookup opSuccessors)
     (numAttributes, nativeAttributes) <- packNamedAttrs ctx env opAttributes
     -- NB: This is nullable when result type inference is enabled
     maybeOperation <- liftIO $ Native.nullable <$> [C.block| MlirOperation {

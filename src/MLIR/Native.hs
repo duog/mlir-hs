@@ -28,6 +28,13 @@ module MLIR.Native (
     -- ** Dialect registration
     registerAllDialects,
     getNumLoadedDialects,
+    getNumRegisteredDialects,
+    appendDialectToDialectRegistry,
+    appendDialectRegistryToContext,
+    dialectRegistryCreate,
+    dialectRegistryDestroy,
+    withDialectRegistry,
+    DialectRegistry,DialectHandle(..),
     -- * Type
     Type,
     -- * Location
@@ -136,11 +143,30 @@ registerAllDialects ctx = [C.block| void {
     mlirContextLoadAllAvailableDialects($(MlirContext ctx));
   } |]
 
--- | Retrieve the count of dialects currently registered in the 'Context'.
+-- | Retrieve the count of dialects currently loaded in the 'Context'.
 getNumLoadedDialects :: Context -> IO Int
 getNumLoadedDialects ctx = fromIntegral <$>
   [C.exp| intptr_t { mlirContextGetNumLoadedDialects($(MlirContext ctx)) } |]
 
+-- | Retrieve the count of dialects currently registered in the 'Context'.
+getNumRegisteredDialects :: Context -> IO Int
+getNumRegisteredDialects ctx = fromIntegral <$>
+  [C.exp| intptr_t { mlirContextGetNumRegisteredDialects($(MlirContext ctx)) } |]
+
+appendDialectToDialectRegistry ::  DialectHandle -> DialectRegistry -> IO ()
+appendDialectToDialectRegistry handle registry = [C.exp| void { mlirDialectHandleInsertDialect($(MlirDialectHandle handle), $(MlirDialectRegistry registry)) }|]
+
+appendDialectRegistryToContext ::  DialectRegistry -> Context -> IO ()
+appendDialectRegistryToContext registry context = [C.exp| void { mlirContextAppendDialectRegistry($(MlirContext context), $(MlirDialectRegistry registry)) }|]
+
+dialectRegistryCreate :: IO DialectRegistry
+dialectRegistryCreate = [C.exp| MlirDialectRegistry { mlirDialectRegistryCreate () }|]
+
+dialectRegistryDestroy :: DialectRegistry -> IO ()
+dialectRegistryDestroy registry = [C.exp| void { mlirDialectRegistryDestroy ($(MlirDialectRegistry registry)) }|]
+
+withDialectRegistry :: (DialectRegistry -> IO a) -> IO a
+withDialectRegistry = bracket dialectRegistryCreate dialectRegistryDestroy
 --------------------------------------------------------------------------------
 -- Locations
 

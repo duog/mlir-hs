@@ -36,13 +36,13 @@ data Expr =
   | Mod       Expr Expr
   | FloorDiv  Expr Expr
   | CeilDiv   Expr Expr
-  deriving Eq
+  deriving (Eq, Show)
 
 data Map = Map { mapDimensionCount :: Int
                , mapSymbolCount :: Int
                , mapExprs :: [Expr]
                }
-               deriving Eq
+               deriving (Eq, Show)
 
 
 instance FromAST Expr Native.AffineExpr where

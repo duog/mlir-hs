@@ -52,6 +52,8 @@ void HaskellMlirStringCallback(MlirStringRef ref, void* ctxRaw);
 |]
 
 data MlirContextObject
+data MlirDialectRegistryObject
+data MlirDialectHandleObject
 data MlirLocationObject
 data MlirModuleObject
 data MlirOperationObject
@@ -70,6 +72,14 @@ data MlirAffineMapObject
 -- | A native MLIR context.
 newtype Context = ContextPtr (Ptr MlirContextObject)
                   deriving Storable via (Ptr ())
+-- | A native Dialect Registry
+newtype DialectRegistry = DialectRegistryPtr (Ptr MlirDialectRegistryObject)
+                  deriving Storable via (Ptr ())
+
+-- | A native Dialect Handle
+newtype DialectHandle = DialectHandlePtr (Ptr MlirDialectHandleObject)
+                  deriving Storable via (Ptr ())
+
 -- | A native MLIR pass instance.
 newtype Pass = PassPtr (Ptr MlirPassObject)
                deriving Storable via (Ptr ())
@@ -148,6 +158,8 @@ mlirCtx = mempty {
   -- pointer here, but I'm not 100% sure if that's a good assumption.
   C.Context.ctxTypesTable = Map.fromList [
     (C.TypeName "MlirContext", [t|Context|])
+  , (C.TypeName "MlirDialectRegistry", [t|DialectRegistry|])
+  , (C.TypeName "MlirDialectHandle", [t|DialectHandle|])
   , (C.TypeName "MlirLocation", [t|Location|])
   , (C.TypeName "MlirModule", [t|Module|])
   , (C.TypeName "MlirOperation", [t|Operation|])
