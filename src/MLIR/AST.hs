@@ -22,6 +22,7 @@ import Data.Word
 import Data.Coerce
 import Data.Ix
 import Data.Array.IArray
+import Data.Maybe
 import Foreign.Ptr
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
@@ -72,34 +73,21 @@ data Type =
   | UnrankedTensorType { unrankedTensorTypeElement :: Type }
   | OpaqueType { opaqueTypeNamespace :: Name
                , opaqueTypeData :: BS.ByteString }
-  | forall t. (Typeable t, Eq t, FromAST t Native.Type) => DialectType t
-  -- GHC cannot derive Eq due to the existential case, so we implement Eq below
-  -- deriving Eq
+  | MkDialectType DialectType
+  deriving stock (Eq)
 
-instance Eq Type where
-  a == b = case (a, b) of
-    (BFloat16Type      , BFloat16Type      ) -> True
-    (Float16Type       , Float16Type       ) -> True
-    (Float32Type       , Float32Type       ) -> True
-    (Float64Type       , Float64Type       ) -> True
-    (Float80Type       , Float80Type       ) -> True
-    (Float128Type      , Float128Type      ) -> True
-    (ComplexType a1    , ComplexType b1    ) -> a1 == b1
-    (IndexType         , IndexType         ) -> True
-    (IntegerType a1 a2 , IntegerType b1 b2 ) -> (a1, a2) == (b1, b2)
-    (TupleType a1      , TupleType b1      ) -> a1 == b1
-    (NoneType          , NoneType          ) -> True
-    (FunctionType a1 a2, FunctionType b1 b2) -> (a1, a2) == (b1, b2)
-    (MemRefType a1 a2 a3 a4   , MemRefType b1 b2 b3 b4   ) -> (a1, a2, a3, a4) == (b1, b2, b3, b4)
-    (RankedTensorType a1 a2 a3, RankedTensorType b1 b2 b3) -> (a1, a2, a3    ) == (b1, b2, b3    )
-    (VectorType a1 a2  , VectorType b1 b2  )               -> (a1, a2) == (b1, b2)
-    (UnrankedMemRefType a1 a2, UnrankedMemRefType b1 b2  ) -> (a1, a2) == (b1, b2)
-    (UnrankedTensorType a1   , UnrankedTensorType b1     ) -> (a1    ) == (b1    )
-    (OpaqueType a1 a2  , OpaqueType b1 b2  )               -> (a1, a2) == (b1, b2)
-    (DialectType a1    , DialectType b1    ) -> case cast a1 of
-      Just a1' -> a1' == b1
-      Nothing  -> False
-    _ -> False
+data DialectType where
+  WrappedDialectType :: forall t. (Typeable t, Eq t, FromAST t Native.Type) => t -> DialectType
+
+pattern DialectType ::
+  (Typeable t, Eq t, FromAST t Native.Type)
+  => (Typeable t, Eq t, FromAST t Native.Type)
+  => t -> Type
+pattern DialectType t <- MkDialectType (WrappedDialectType (cast -> Just t))
+  where DialectType t = MkDialectType (WrappedDialectType t)
+
+instance Eq DialectType where
+  WrappedDialectType t == WrappedDialectType s = fromMaybe False $ (== t) <$> cast s
 
 data Location =
     UnknownLocation
@@ -344,7 +332,7 @@ instance FromAST Type Native.Type where
           mlirVectorTypeGet($(intptr_t rank), $(int64_t* nativeShape), $(MlirType nativeElTy))
         } |]
       where shapeI64 = fmap fromIntegral shape :: [Int64]
-    DialectType t -> fromAST ctx env t
+    MkDialectType (WrappedDialectType t) -> fromAST ctx env t
 
 
 instance FromAST Region Native.Region where
