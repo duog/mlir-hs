@@ -1,4 +1,4 @@
-cabal-version: 3.0
+cabal-version: 3.8
 
 name:           mlir-hs
 version:        0.1.0.0
@@ -13,6 +13,7 @@ license-file:   LICENSE
 build-type:     Custom
 extra-source-files:
     README.md
+    tblgen/*.cc
 
 source-repository head
   type: git
@@ -77,16 +78,6 @@ library
     , MLIR.Native.FFI
     , MLIR.Native.Pass
   other-modules:
-      MLIR.AST.Dialect.Generated.Arith
-    , MLIR.AST.Dialect.Generated.ControlFlow
-    , MLIR.AST.Dialect.Generated.Func
-    , MLIR.AST.Dialect.Generated.LLVM
-    , MLIR.AST.Dialect.Generated.Linalg
-    , MLIR.AST.Dialect.Generated.LinalgStructured
-    , MLIR.AST.Dialect.Generated.Shape
-    , MLIR.AST.Dialect.Generated.Tensor
-    , MLIR.AST.Dialect.Generated.Vector
-    , MLIR.AST.Dialect.Generated.X86Vector
   build-depends:
       base >=4.7 && <5
     , inline-c
@@ -97,7 +88,7 @@ library
     , bytestring
     , transformers
   extra-libraries:
-    MLIR-C
+    GHC-MLIR-C
 
 test-suite spec
   import: defaults
