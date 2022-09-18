@@ -54,6 +54,7 @@ void HaskellMlirStringCallback(MlirStringRef ref, void* ctxRaw);
 data MlirContextObject
 data MlirDialectRegistryObject
 data MlirDialectHandleObject
+data MlirDialectObject
 data MlirLocationObject
 data MlirModuleObject
 data MlirOperationObject
@@ -78,6 +79,10 @@ newtype DialectRegistry = DialectRegistryPtr (Ptr MlirDialectRegistryObject)
 
 -- | A native Dialect Handle
 newtype DialectHandle = DialectHandlePtr (Ptr MlirDialectHandleObject)
+                  deriving Storable via (Ptr ())
+
+-- | A native Dialect
+newtype Dialect = DialectPtr (Ptr MlirDialectObject)
                   deriving Storable via (Ptr ())
 
 -- | A native MLIR pass instance.
@@ -160,6 +165,7 @@ mlirCtx = mempty {
     (C.TypeName "MlirContext", [t|Context|])
   , (C.TypeName "MlirDialectRegistry", [t|DialectRegistry|])
   , (C.TypeName "MlirDialectHandle", [t|DialectHandle|])
+  , (C.TypeName "MlirDialect", [t|Dialect|])
   , (C.TypeName "MlirLocation", [t|Location|])
   , (C.TypeName "MlirModule", [t|Module|])
   , (C.TypeName "MlirOperation", [t|Operation|])

@@ -26,6 +26,9 @@ module MLIR.Native (
     withContext,
     HasContext(..),
     -- ** Dialect registration
+    setAllowUnregisteredDialects,
+    getAllowUnregisteredDialects,
+    getOrLoadDialect,
     registerAllDialects,
     getNumLoadedDialects,
     getNumRegisteredDialects,
@@ -132,6 +135,22 @@ class HasContext a where
 
 --------------------------------------------------------------------------------
 -- Dialect registration
+
+boolToCBool :: Bool -> C.CBool
+boolToCBool x = if x then 1 else 0
+
+cBoolToBool :: C.CBool -> Bool
+cBoolToBool x = x /= 0
+
+setAllowUnregisteredDialects :: Bool -> Context -> IO ()
+setAllowUnregisteredDialects (boolToCBool -> b) ctx = [C.exp| void { mlirContextSetAllowUnregisteredDialects($(MlirContext ctx), $(bool b)) } |]
+
+getAllowUnregisteredDialects :: Context -> IO Bool
+getAllowUnregisteredDialects ctx = cBoolToBool <$> [C.exp| bool { mlirContextGetAllowUnregisteredDialects($(MlirContext ctx)) } |]
+
+getOrLoadDialect :: Context -> StringRef -> IO Dialect
+getOrLoadDialect ctx (StringRef ptr len) =
+  [C.exp| MlirDialect { mlirContextGetOrLoadDialect($(MlirContext ctx), (MlirStringRef){$(char* ptr), $(size_t len)})} |]
 
 -- | Register all builtin MLIR dialects in the specified 'Context'.
 registerAllDialects :: Context -> IO ()
@@ -403,9 +422,8 @@ unrollIOMaybe fn z = do
 
 -- | Enable or disable debug logging in MLIR.
 setDebugMode :: Bool -> IO ()
-setDebugMode enable = do
-  let nativeEnable = if enable then 1 else 0
-  [C.exp| void { mlirEnableGlobalDebug($(bool nativeEnable)) } |]
+setDebugMode (boolToCBool -> enable) = do
+  [C.exp| void { mlirEnableGlobalDebug($(bool enable)) } |]
 
 
 -- | A class for native objects that can be dumped to standard error output.
