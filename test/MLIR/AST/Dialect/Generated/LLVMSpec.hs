@@ -1,0 +1,1 @@
+{-# OPTIONS_GHC -F -pgmFmlir-hs-tblgen-wrapper -optF--generator=hs-tests -optFmlir/Dialect/LLVMIR/LLVMOps.td -optF-strip-prefix -optFLLVM_ -optF-dialect-name -optFLLVM_ -optF-dialect-name -optFLLVM #-}

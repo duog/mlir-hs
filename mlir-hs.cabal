@@ -10,10 +10,9 @@ maintainer:     apaszke@google.com
 copyright:      2021 Google
 license:        Apache-2.0
 license-file:   LICENSE
-build-type:     Custom
+build-type:     Configure
 extra-source-files:
     README.md
-    tblgen/*.cc
 
 source-repository head
   type: git
@@ -44,17 +43,28 @@ common defaults
     , TypeSynonymInstances
     , ViewPatterns
 
-custom-setup
-  setup-depends:
-      base
-    , Cabal
-    , lens
-    , directory
-    , filepath
+executable mlir-hs-tblgen-wrapper
+  main-is: tblgen-wrapper.hs
+  hs-source-dirs: tblgen
+  build-depends: base, process, directory, filepath
+  scope: private
+  other-extensions: CPP
+
+executable mlir-hs-tblgen
+  cxx-sources:
+    tblgen/hs-generators.cc
+    tblgen/mlir-hs-tblgen.cc
+  main-is: blank.c
+  build-depends:
+    system-cxx-std-lib
+  extra-libraries:
+    LLVM MLIR MLIRTableGen LLVMTableGen
+  scope: private
 
 library
   import: defaults
   hs-source-dirs: src
+  build-tool-depends: mlir-hs:mlir-hs-tblgen-wrapper, mlir-hs:mlir-hs-tblgen
   exposed-modules:
       MLIR.AST
     , MLIR.AST.Builder
@@ -78,6 +88,27 @@ library
     , MLIR.Native.FFI
     , MLIR.Native.Pass
   other-modules:
+      MLIR.AST.Dialect.Generated.Arith
+    , MLIR.AST.Dialect.Generated.ControlFlow
+    , MLIR.AST.Dialect.Generated.Func
+    , MLIR.AST.Dialect.Generated.LLVM
+    , MLIR.AST.Dialect.Generated.Linalg
+    , MLIR.AST.Dialect.Generated.LinalgStructured
+    , MLIR.AST.Dialect.Generated.Shape
+    , MLIR.AST.Dialect.Generated.Tensor
+    , MLIR.AST.Dialect.Generated.Vector
+    , MLIR.AST.Dialect.Generated.X86Vector
+  autogen-modules:
+      MLIR.AST.Dialect.Generated.Arith
+    , MLIR.AST.Dialect.Generated.ControlFlow
+    , MLIR.AST.Dialect.Generated.Func
+    , MLIR.AST.Dialect.Generated.LLVM
+    , MLIR.AST.Dialect.Generated.Linalg
+    , MLIR.AST.Dialect.Generated.LinalgStructured
+    , MLIR.AST.Dialect.Generated.Shape
+    , MLIR.AST.Dialect.Generated.Tensor
+    , MLIR.AST.Dialect.Generated.Vector
+    , MLIR.AST.Dialect.Generated.X86Vector
   build-depends:
       base >=4.7 && <5
     , inline-c
@@ -88,7 +119,7 @@ library
     , bytestring
     , transformers
   extra-libraries:
-    GHC-MLIR-C
+    MLIR-C
 
 test-suite spec
   import: defaults
@@ -115,4 +146,23 @@ test-suite spec
     , MLIR.NativeSpec
     , MLIR.RewriteSpec
     , MLIR.Test.Generators
-  build-tool-depends: hspec-discover:hspec-discover
+    , MLIR.AST.Dialect.Generated.ArithSpec
+    , MLIR.AST.Dialect.Generated.ControlFlowSpec
+    , MLIR.AST.Dialect.Generated.FuncSpec
+    , MLIR.AST.Dialect.Generated.LLVMSpec
+    , MLIR.AST.Dialect.Generated.LinalgSpec
+    , MLIR.AST.Dialect.Generated.ShapeSpec
+    , MLIR.AST.Dialect.Generated.TensorSpec
+    , MLIR.AST.Dialect.Generated.VectorSpec
+    , MLIR.AST.Dialect.Generated.X86VectorSpec
+  autogen-modules:
+      MLIR.AST.Dialect.Generated.ArithSpec
+    , MLIR.AST.Dialect.Generated.ControlFlowSpec
+    , MLIR.AST.Dialect.Generated.FuncSpec
+    , MLIR.AST.Dialect.Generated.LLVMSpec
+    , MLIR.AST.Dialect.Generated.LinalgSpec
+    , MLIR.AST.Dialect.Generated.ShapeSpec
+    , MLIR.AST.Dialect.Generated.TensorSpec
+    , MLIR.AST.Dialect.Generated.VectorSpec
+    , MLIR.AST.Dialect.Generated.X86VectorSpec
+  build-tool-depends: hspec-discover:hspec-discover, mlir-hs:mlir-hs-tblgen-wrapper, mlir-hs:mlir-hs-tblgen

@@ -82,17 +82,22 @@ buildTblgen confFlags = do
   cxxFlags   <- words <$> llvmConfig ["--cxxflags"]
   ldFlags    <- words <$> llvmConfig ["--ldflags"]
   cppFlags   <- words <$> llvmConfig ["--cppflags"]
-  includeDir <- trim  <$> llvmConfig ["--includedir"]
-  libDir     <- trim  <$> llvmConfig ["--libdir"]
+  -- includeDir <- trim  <$> llvmConfig ["--includedir"]
+  -- libDir     <- trim  <$> llvmConfig ["--libdir"]
+  -- libDir     <- trim  <$> llvmConfig ["--libdir"]
+  libs <- words <$> llvmConfig ["--libs", "--link-shared", "tablegen"]
+  libdir <- trim <$> llvmConfig ["--libdir"]
   cc <- getCC confFlags
   ensureDirectory $ cwd </> ".bin"
-  cc $ sources ++ cxxFlags ++ ldFlags ++ ["-Wl,-rpath=" ++ libDir] ++
-        [ "-lMLIR", "-lLLVM", "-lMLIRTableGen", "-lLLVMTableGen"
-        , "-o", cwd </> ".bin/mlir-hs-tblgen"]
+  cc $ ["-fuse-ld=gold"
+       , "-rpath", libdir
+       ] ++ sources ++ cxxFlags ++ ldFlags ++ libs
+    -- ++ ["-Wl,-rpath=" ++ libDir]
+    ++ ["-o", cwd </> ".bin/mlir-hs-tblgen", "-lMLIR", "-lMLIRTableGen", "-lLLVMTableGen"]
   let tblgenProgram = ConfiguredProgram
         { programId           = "mlir-hs-tblgen"
         , programVersion      = Nothing
-        , programDefaultArgs  = ("-I" <> includeDir) : cppFlags
+        , programDefaultArgs  = cppFlags
         , programOverrideArgs = []
         , programOverrideEnv  = []
         , programProperties   = mempty
@@ -104,7 +109,7 @@ buildTblgen confFlags = do
     runProgram verbosity tblgenProgram $
         [ "--write-if-changed"
         , "--generator", show generator
-        , includeDir </> tdPath
+        -- , includeDir </> tdPath
         , "-o", cwd </> outputPath
         ] ++ opts
   where
@@ -152,7 +157,7 @@ main = defaultMainWithHooks simpleUserHooks
       (llvmIncludeFlags, llvmCcFlags) <- partition isIncludeDir . words <$> llvmConfig ["--cflags"]
       let llvmIncludeDirs = (fromJust . (stripPrefix "-I")) <$> llvmIncludeFlags
       let llvmLibDirs     = (fromJust . (stripPrefix "-L")) <$> llvmLibDirFlags
-      let ghcopts = ["-optl-Wl,-rpath=" <> x | x <- llvmLibDirs]
+      -- let ghcopts = ["-optl-Wl,-rpath=" <> x | x <- llvmLibDirs]
       let Just condLib = condLibrary genericPackageDesc
       let newLibrary = condTreeData condLib
             & over (libBuildInfo . buildInfo . ccOptions     ) (<> llvmCcFlags     )
@@ -161,7 +166,8 @@ main = defaultMainWithHooks simpleUserHooks
             & over (libBuildInfo . buildInfo . extraLibDirs  ) (<> llvmLibDirs     )
             & over (libBuildInfo . buildInfo . otherModules  ) (<> generatedModules)
             & over (libBuildInfo . buildInfo . autogenModules) (<> generatedModules)
-            & over (libBuildInfo . buildInfo . options ) (<> PerCompilerFlavor ghcopts ghcopts)
+            -- & over (libBuildInfo . buildInfo . options )
+            -- (<> PerCompilerFlavor ghcopts ghcopts)
 
 
       let newCondLibrary = condLib { condTreeData = newLibrary }
