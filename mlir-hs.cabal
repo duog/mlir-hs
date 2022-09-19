@@ -13,6 +13,7 @@ license-file:   LICENSE
 build-type:     Configure
 extra-source-files:
     README.md
+    configure
 
 source-repository head
   type: git
@@ -118,8 +119,10 @@ library
     , containers
     , bytestring
     , transformers
+  -- TODO this is gross, but it works..
   extra-libraries:
-    MLIR-C
+    GHC-MLIR-C
+
 
 test-suite spec
   import: defaults

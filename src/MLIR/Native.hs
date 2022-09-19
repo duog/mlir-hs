@@ -26,6 +26,8 @@ module MLIR.Native (
     withContext,
     HasContext(..),
     -- ** Dialect registration
+    dialectHandleRegisterDialect,
+    loadAllAvailableDialects,
     setAllowUnregisteredDialects,
     getAllowUnregisteredDialects,
     getOrLoadDialect,
@@ -149,18 +151,24 @@ getAllowUnregisteredDialects :: Context -> IO Bool
 getAllowUnregisteredDialects ctx = cBoolToBool <$> [C.exp| bool { mlirContextGetAllowUnregisteredDialects($(MlirContext ctx)) } |]
 
 getOrLoadDialect :: Context -> StringRef -> IO Dialect
-getOrLoadDialect ctx (StringRef ptr len) =
-  [C.exp| MlirDialect { mlirContextGetOrLoadDialect($(MlirContext ctx), (MlirStringRef){$(char* ptr), $(size_t len)})} |]
+getOrLoadDialect ctx (StringRef ptr len) = [C.exp| MlirDialect { mlirContextGetOrLoadDialect($(MlirContext ctx), (MlirStringRef){$(char* ptr), $(size_t len)})} |]
+
+dialectHandleRegisterDialect :: DialectHandle -> Context -> IO ()
+dialectHandleRegisterDialect h ctx = [C.exp| void { mlirDialectHandleRegisterDialect($(MlirDialectHandle h), $(MlirContext ctx)) }|]
+
+loadAllAvailableDialects :: Context -> IO ()
+loadAllAvailableDialects ctx = [C.exp| void { mlirContextLoadAllAvailableDialects($(MlirContext ctx)) }|]
 
 -- | Register all builtin MLIR dialects in the specified 'Context'.
 registerAllDialects :: Context -> IO ()
-registerAllDialects ctx = [C.block| void {
+registerAllDialects ctx = do
+  [C.block| void {
     MlirDialectRegistry registry = mlirDialectRegistryCreate();
     mlirRegisterAllDialects(registry);
     mlirContextAppendDialectRegistry($(MlirContext ctx), registry);
     mlirDialectRegistryDestroy(registry);
-    mlirContextLoadAllAvailableDialects($(MlirContext ctx));
   } |]
+  loadAllAvailableDialects ctx
 
 -- | Retrieve the count of dialects currently loaded in the 'Context'.
 getNumLoadedDialects :: Context -> IO Int
@@ -186,6 +194,7 @@ dialectRegistryDestroy registry = [C.exp| void { mlirDialectRegistryDestroy ($(M
 
 withDialectRegistry :: (DialectRegistry -> IO a) -> IO a
 withDialectRegistry = bracket dialectRegistryCreate dialectRegistryDestroy
+
 --------------------------------------------------------------------------------
 -- Locations
 
